@@ -1,0 +1,9 @@
+[package]
+name = "chip8-rs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+minifb = "0.24"
+rand = "0.8"
+# rodio = "0.14"
