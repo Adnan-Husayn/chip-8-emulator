@@ -14,6 +14,7 @@ const FONT_ADDR: u16 = 0x50;
 pub enum CpuError {
     StackOverflow,
     StackUnderflow,
+    MemoryOutOfBounds,
 }
 
 pub struct Cpu {
@@ -101,7 +102,7 @@ impl Cpu {
             return Ok(());
         }
 
-        let opcode = self.fetch_opcode();
+        let opcode = self.fetch_opcode()?;
         self.pc += 2;
         self.execute(opcode)
     }
@@ -148,10 +149,22 @@ impl Cpu {
         self.keys[key as usize] = pressed;
     }
 
-    fn fetch_opcode(&self) -> u16 {
-        let hi = self.mem[self.pc as usize] as u16;
-        let lo = self.mem[(self.pc + 1) as usize] as u16;
-        (hi << 8) | lo
+    fn fetch_opcode(&self) -> std::result::Result<u16, CpuError> {
+        let pc = self.pc as usize;
+        match self.mem.get(pc..pc + 2) {
+            Some(&[hi, lo]) => Ok(u16::from_be_bytes([hi, lo])),
+            _ => Err(CpuError::MemoryOutOfBounds),
+        }
+    }
+
+    /// Range of `len` bytes starting at `I`, or an error if it leaves memory.
+    fn i_range(&self, len: usize) -> std::result::Result<std::ops::Range<usize>, CpuError> {
+        let start = self.i as usize;
+        let end = start + len;
+        if end > MEMORY_SIZE {
+            return Err(CpuError::MemoryOutOfBounds);
+        }
+        Ok(start..end)
     }
 
     fn execute(&mut self, opcode: u16) -> std::result::Result<(), CpuError> {
@@ -279,19 +292,17 @@ impl Cpu {
                 0x1E => self.i = self.i.wrapping_add(self.v[x] as u16),
                 0x29 => self.i = FONT_ADDR + (self.v[x] as u16) * 5,
                 0x33 => {
-                    self.mem[self.i as usize] = self.v[x] / 100;
-                    self.mem[self.i as usize + 1] = (self.v[x] / 10) % 10;
-                    self.mem[self.i as usize + 2] = self.v[x] % 10;
+                    let r = self.i_range(3)?;
+                    let val = self.v[x];
+                    self.mem[r].copy_from_slice(&[val / 100, (val / 10) % 10, val % 10]);
                 }
                 0x55 => {
-                    for k in 0..=x {
-                        self.mem[self.i as usize + k] = self.v[k];
-                    }
+                    let r = self.i_range(x + 1)?;
+                    self.mem[r].copy_from_slice(&self.v[..=x]);
                 }
                 0x65 => {
-                    for k in 0..=x {
-                        self.v[k] = self.mem[self.i as usize + k];
-                    }
+                    let r = self.i_range(x + 1)?;
+                    self.v[..=x].copy_from_slice(&self.mem[r]);
                 }
                 _ => {}
             },
@@ -631,5 +642,36 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.execute(0xC000).unwrap();
         assert_eq!(cpu.v[0], 0);
+    }
+
+    #[test]
+    fn fetch_past_end_of_memory_is_reported() {
+        let mut cpu = Cpu::new();
+        cpu.pc = 0xFFF;
+        assert_eq!(cpu.cycle(), Err(CpuError::MemoryOutOfBounds));
+    }
+
+    #[test]
+    fn bcd_past_end_of_memory_is_reported() {
+        let mut cpu = Cpu::new();
+        cpu.i = 0xFFE;
+        assert_eq!(cpu.execute(0xF033), Err(CpuError::MemoryOutOfBounds));
+    }
+
+    #[test]
+    fn register_store_and_load_past_end_of_memory_are_reported() {
+        let mut cpu = Cpu::new();
+        cpu.i = 0xFFF;
+        assert_eq!(cpu.execute(0xF155), Err(CpuError::MemoryOutOfBounds));
+        assert_eq!(cpu.execute(0xF165), Err(CpuError::MemoryOutOfBounds));
+    }
+
+    #[test]
+    fn register_store_at_last_byte_succeeds() {
+        let mut cpu = Cpu::new();
+        cpu.v[0] = 9;
+        cpu.i = 0xFFF;
+        cpu.execute(0xF055).unwrap();
+        assert_eq!(cpu.mem[0xFFF], 9);
     }
 }

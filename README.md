@@ -41,7 +41,7 @@ cargo test
 
 - No sound yet. The sound timer runs, but nothing is played.
 - Quirks follow modern conventions: `8XY6`/`8XYE` shift `Vx` in place, and `FX55`/`FX65` leave `I` unchanged.
-- Memory accesses from ROM-controlled addresses are not yet bounds-checked, so a malformed ROM can crash the emulator.
+- A ROM that reads, writes or fetches outside the 4 KB of memory halts the emulator with an error instead of wrapping.
 
 ## Test ROMs
 
