@@ -107,6 +107,10 @@ impl Cpu {
         self.execute(opcode)
     }
 
+    pub fn sound_active(&self) -> bool {
+        self.sound_timer > 0
+    }
+
     pub fn update_timers(&mut self) {
         if self.delay_timer > 0 {
             self.delay_timer -= 1;
@@ -635,6 +639,16 @@ mod tests {
         cpu.update_timers();
         assert_eq!(cpu.delay_timer, 0);
         assert_eq!(cpu.sound_timer, 0);
+    }
+
+    #[test]
+    fn sound_is_active_only_while_timer_runs() {
+        let mut cpu = Cpu::new();
+        assert!(!cpu.sound_active());
+        cpu.sound_timer = 1;
+        assert!(cpu.sound_active());
+        cpu.update_timers();
+        assert!(!cpu.sound_active());
     }
 
     #[test]

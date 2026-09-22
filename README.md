@@ -5,6 +5,7 @@ A CHIP-8 emulator written in Rust, using [minifb](https://crates.io/crates/minif
 ## Features
 
 - Full CHIP-8 instruction set
+- A 440 Hz beep plays while the sound timer is running (silent if no audio device is found)
 - 700 Hz CPU and 60 Hz timers, independent of the display refresh rate
 - 64x32 display, scaled 10x
 - `FX0A` waits for a newly pressed key, not one that was already held
@@ -39,7 +40,6 @@ cargo test
 
 ## Known limitations
 
-- No sound yet. The sound timer runs, but nothing is played.
 - Quirks follow modern conventions: `8XY6`/`8XYE` shift `Vx` in place, and `FX55`/`FX65` leave `I` unchanged.
 - A ROM that reads, writes or fetches outside the 4 KB of memory halts the emulator with an error instead of wrapping.
 

@@ -1,9 +1,11 @@
+mod audio;
 mod cpu;
 
 use std::time::{Duration, Instant};
 
 use minifb::{Key, Window, WindowOptions};
 
+use audio::Beeper;
 use cpu::Cpu;
 
 const WIDTH: usize = cpu::WIDTH;
@@ -54,6 +56,7 @@ fn main() {
         .expect("Failed to create window");
     window.limit_update_rate(Some(Duration::from_micros(16_600)));
 
+    let beeper = Beeper::new();
     let mut buffer = vec![0u32; WIN_W * WIN_H];
 
     let mut last = Instant::now();
@@ -81,6 +84,7 @@ fn main() {
             cpu.update_timers();
             timer_accumulator -= 1.0;
         }
+        beeper.set_active(cpu.sound_active());
 
         render(cpu.display(), &mut buffer);
         window
